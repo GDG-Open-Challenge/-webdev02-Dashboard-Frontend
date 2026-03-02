@@ -1,1 +1,142 @@
-function renderBoard() { var a = document.getElementById("board"); a && (a.innerHTML = "", AppState.columns.forEach(function (b) { var c = createColumnElement(b); a.appendChild(c) }), a.appendChild(document.createElement("div")), updateActivityBadge()) } function createColumnElement(a) { var b = document.createElement("div"); b.className = "column", b.dataset.id = a.id; var c = getCardsForColumn(a.id), d = c.filter(function (b) { return matchesSearch(b, AppState.searchQuery) }); return b.innerHTML = `<div class="column-header"><div class="column-title-group"><div class="column-color-dot" style="background: ${a.color}"></div><h3 class="column-title">${escapeHtml(a.title)}</h3><span class="column-count">${c.length}</span></div><div class="column-actions"><button class="column-action-btn edit-col"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg></button><button class="column-action-btn delete-col"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button></div></div><div class="card-list" data-col-id="${a.id}"></div><button class="add-card-btn" data-col-id="${a.id}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>Add Card</button>`, 0 === d.length && !AppState.searchQuery ? b.querySelector(".card-list").innerHTML = `<div class="empty-state"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="9" x2="15" y2="9"></line><line x1="9" y1="13" x2="15" y2="13"></line><line x1="9" y1="17" x2="13" y2="17"></line></svg><p>No cards yet</p></div>` : d.forEach(function (a) { b.querySelector(".card-list").appendChild(createCardElement(a)) }), attachColumnListeners(b), b } function createCardElement(a) { var b = document.createElement("div"); return b.className = "card", b.dataset.id = a.id, b.draggable = !0, b.innerHTML = `<div class="card-color-bar" style="background: ${a.color}"></div><div class="card-content"><h4 class="card-title">${escapeHtml(a.title)}</h4><p class="card-description">${escapeHtml(a.description)}</p><div class="card-meta"><div class="card-badges"><span class="priority-badge ${a.priority}">${a.priority}</span></div><div class="card-assignee"><div class="assignee-avatar">${getInitials(a.assignee)}</div><span>${escapeHtml(a.assignee)}</span></div></div></div><div class="card-actions"><button class="card-action-btn edit-card"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg></button><button class="card-action-btn delete-card"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button></div>`, b.addEventListener("click", function (c) { c.target.closest(".card-action-btn") || openCardModal(a.id) }), b.querySelector(".edit-card").addEventListener("click", function () { openCardModal(a.id) }), b.querySelector(".delete-card").addEventListener("click", function () { confirmDelete("Are you sure you want to delete this card?", function () { delete AppState.cards[a.id], addActivity("Deleted card: " + a.title), autoSave(), renderBoard() }) }), "function" == typeof initDragEvent && initDragEvent(b), b } function renderActivityLog() { var a = document.getElementById("activityList"); a && (a.innerHTML = "", AppState.activityLog.forEach(function (b) { var c = document.createElement("li"); c.className = "activity-item", c.innerHTML = `<div class="activity-dot"></div><div class="activity-content"><div class="activity-text">${b.text}</div><div class="activity-time">${formatTime(b.timestamp)}</div></div>`, a.appendChild(c) })) } function attachColumnListeners(a) { var b = a.dataset.id; a.querySelector(".add-card-btn").addEventListener("click", function () { openCardModal(null, b) }), a.querySelector(".edit-col").addEventListener("click", function () { openColumnModal(b) }), a.querySelector(".delete-col").addEventListener("click", function () { confirmDelete("Are you sure you want to delete this column and all its cards?", function () { var c = getCardsForColumn(b); c.forEach(function (a) { delete AppState.cards[a.id] }), AppState.columns = AppState.columns.filter(function (a) { return a.id !== b }), addActivity("Deleted column"), autoSave(), renderBoard() }) }) }
+function renderBoard() {
+  var board = document.getElementById("board");
+  if (!board) return;
+
+  board.innerHTML = "";
+
+  AppState.columns.forEach(function (col) {
+    var columnEl = createColumnElement(col);
+    board.appendChild(columnEl);
+  });
+
+  board.appendChild(document.createElement("div"));
+  updateActivityBadge();
+}
+
+function createColumnElement(col) {
+  var column = document.createElement("div");
+  column.className = "column";
+  column.dataset.id = col.id;
+
+  var cards = getCardsForColumn(col.id);
+  var filteredCards = cards.filter(function (card) {
+    return matchesSearch(card, AppState.searchQuery);
+  });
+
+  column.innerHTML = `
+    <div class="column-header">
+      <div class="column-title-group">
+        <div class="column-color-dot" style="background: ${col.color}"></div>
+        <h3 class="column-title">${escapeHtml(col.title)}</h3>
+        <span class="column-count">${cards.length}</span>
+      </div>
+      <div class="column-actions">
+        <button class="column-action-btn edit-col">Edit</button>
+        <button class="column-action-btn delete-col">Delete</button>
+      </div>
+    </div>
+    <div class="card-list" data-col-id="${col.id}"></div>
+    <button class="add-card-btn" data-col-id="${col.id}">Add Card</button>
+  `;
+
+  var cardList = column.querySelector(".card-list");
+
+  if (filteredCards.length === 0 && !AppState.searchQuery) {
+    cardList.innerHTML = `<div class="empty-state"><p>No cards yet</p></div>`;
+  } else {
+    filteredCards.forEach(function (card) {
+      cardList.appendChild(createCardElement(card));
+    });
+  }
+
+  attachColumnListeners(column);
+  return column;
+}
+
+function createCardElement(card) {
+  var cardEl = document.createElement("div");
+  cardEl.className = "card";
+  cardEl.dataset.id = card.id;
+  cardEl.draggable = true;
+
+  cardEl.innerHTML = `
+    <div class="card-color-bar" style="background: ${card.color}"></div>
+    <div class="card-content">
+      <h4>${escapeHtml(card.title)}</h4>
+      <p>${escapeHtml(card.description)}</p>
+      <div class="priority-badge ${card.priority}">
+        ${card.priority}
+      </div>
+    </div>
+  `;
+
+  cardEl.addEventListener("click", function (e) {
+    if (!e.target.closest(".card-action-btn")) {
+      openCardModal(card.id);
+    }
+  });
+
+  if (typeof initDragEvent === "function") {
+    initDragEvent(cardEl);
+  }
+
+  return cardEl;
+}
+
+
+   /*FIXED ACTIVITY LOG ORDER*/
+
+function renderActivityLog() {
+  var activityList = document.getElementById("activityList");
+  if (!activityList) return;
+
+  activityList.innerHTML = "";
+
+  // Reverse display order so newest appears first
+  [...AppState.activityLog].reverse().forEach(function (activity) {
+    var li = document.createElement("li");
+    li.className = "activity-item";
+
+    li.innerHTML = `
+      <div class="activity-dot"></div>
+      <div class="activity-content">
+        <div class="activity-text">${activity.text}</div>
+        <div class="activity-time">${formatTime(activity.timestamp)}</div>
+      </div>
+    `;
+
+    activityList.appendChild(li);
+  });
+}
+
+function attachColumnListeners(column) {
+  var colId = column.dataset.id;
+
+  column.querySelector(".add-card-btn").addEventListener("click", function () {
+    openCardModal(null, colId);
+  });
+
+  column.querySelector(".edit-col").addEventListener("click", function () {
+    openColumnModal(colId);
+  });
+
+  column.querySelector(".delete-col").addEventListener("click", function () {
+    confirmDelete(
+      "Are you sure you want to delete this column and all its cards?",
+      function () {
+        var cards = getCardsForColumn(colId);
+        cards.forEach(function (card) {
+          delete AppState.cards[card.id];
+        });
+
+        AppState.columns = AppState.columns.filter(function (col) {
+          return col.id !== colId;
+        });
+
+        addActivity("Deleted column");
+        autoSave();
+        renderBoard();
+      }
+    );
+  });
+}
